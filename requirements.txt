@@ -1,5 +1,6 @@
-Flask==2.0.3
+Flask==2.1.1
 Flask-SQLAlchemy==2.5.1
+SQLAlchemy==1.4.41
 openai==0.27.0
 python-dotenv==0.20.0
 psycopg2-binary==2.9.3
