@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Good Taste Model</title>
+</head>
+<body>
+    <h1>Evaluate Brand Good Taste</h1>
+    <form id="tasteForm">
+        <label for="brand">Brand Name:</label>
+        <input type="text" id="brand" name="brand" required><br><br>
+        <label for="category">Category:</label>
+        <input type="text" id="category" name="category" required><br><br>
+        <label for="subcategory">Subcategory:</label>
+        <input type="text" id="subcategory" name="subcategory" required><br><br>
+        {% for category in categories %}
+            <label for="{{ category }}">{{ category }}:</label>
+            <input type="number" id="{{ category }}" name="{{ category }}" min="0" max="10" required><br><br>
+        {% endfor %}
+        <button type="submit">Evaluate</button>
+    </form>
+    <div id="confirmation" style="display:none;">
+        <h2>Confirm Brand Details</h2>
+        <p id="confirmDetails"></p>
+        <button id="confirmYes">Yes</button>
+        <button id="confirmNo">No</button>
+    </div>
+    <div id="result"></div>
+
+    <script>
+        document.getElementById('tasteForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            const brand = formData.get('brand');
+            const category = formData.get('category');
+            const subcategory = formData.get('subcategory');
+
+            document.getElementById('confirmDetails').innerHTML = `
+                <p><strong>Brand:</strong> ${brand}</p>
+                <p><strong>Category:</strong> ${category}</p>
+                <p><strong>Subcategory:</strong> ${subcategory}</p>
+            `;
+            document.getElementById('tasteForm').style.display = 'none';
+            document.getElementById('confirmation').style.display = 'block';
+
+            document.getElementById('confirmYes').addEventListener('click', function() {
+                const data = {
+                    brand: brand,
+                    category: category,
+                    subcategory: subcategory,
+                    scores: []
+                };
+                {% for category in categories %}
+                    data.scores.push(Number(formData.get('{{ category }}')));
+                {% endfor %}
+                
+                fetch('/evaluate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                })
+                .then(response => response.json())
+                .then(result => {
+                    let resultHtml = `
+                        <h2>Results for ${result.brand}</h2>
+                        <p><strong>Category:</strong> ${result.category}</p>
+                        <p><strong>Subcategory:</strong> ${result.subcategory}</p>
+                        <p><strong>Good Taste Score:</strong> ${result.good_taste_score}</p>
+                        <p><strong>Scores:</strong></p>
+                        <ul>`;
+                    result.scores.forEach((score, index) => {
+                        resultHtml += `<li>${categories[index]}: ${score}</li>`;
+                    });
+                    resultHtml += `</ul>
+                        <p><strong>GPT Evaluation:</strong> ${result.gpt_evaluation}</p>`;
+                    document.getElementById('result').innerHTML = resultHtml;
+                    document.getElementById('confirmation').style.display = 'none';
+                })
+                .catch(error => console.error('Error:', error));
+            });
+
+            document.getElementById('confirmNo').addEventListener('click', function() {
+                document.getElementById('tasteForm').style.display = 'block';
+                document.getElementById('confirmation').style.display = 'none';
+            });
+        });
+    </script>
+</body>
+</html>
