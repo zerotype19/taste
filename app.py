@@ -1,10 +1,9 @@
 import os
 import openai
-import firebase_admin
-from firebase_admin import credentials, firestore
 from flask import Flask, request, render_template, jsonify
 from dotenv import load_dotenv
 from datetime import datetime
+from flask_sqlalchemy import SQLAlchemy
 
 # Load environment variables
 load_dotenv()
@@ -15,10 +14,25 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 # Initialize Flask app
 app = Flask(__name__)
 
-# Initialize Firestore DB
-cred = credentials.Certificate('path/to/your/firebase_credentials.json')
-firebase_admin.initialize_app(cred)
-db = firestore.client()
+# Configure the Heroku Postgres database
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
+
+# Define the database model
+class BrandEvaluation(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    brand = db.Column(db.String(100), nullable=False)
+    category = db.Column(db.String(100), nullable=False)
+    subcategory = db.Column(db.String(100), nullable=False)
+    scores = db.Column(db.JSON, nullable=False)
+    good_taste_score = db.Column(db.Float, nullable=False)
+    gpt_evaluation = db.Column(db.Text, nullable=False)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
+# Create the database tables
+with app.app_context():
+    db.create_all()
 
 # Define categories
 categories = [
@@ -60,16 +74,16 @@ def evaluate():
     gpt_evaluation = response.choices[0].text.strip()
     
     # Capture data with timestamp
-    timestamp = datetime.utcnow().isoformat()
-    doc_ref = db.collection('brand_evaluations').document()
-    doc_ref.set({
-        'brand': brand,
-        'category': category,
-        'subcategory': subcategory,
-        'scores': scores,
-        'good_taste_score': good_taste_score,
-        'timestamp': timestamp
-    })
+    brand_evaluation = BrandEvaluation(
+        brand=brand,
+        category=category,
+        subcategory=subcategory,
+        scores=scores,
+        good_taste_score=good_taste_score,
+        gpt_evaluation=gpt_evaluation
+    )
+    db.session.add(brand_evaluation)
+    db.session.commit()
     
     return jsonify({
         "brand": brand,
@@ -82,3 +96,4 @@ def evaluate():
 
 if __name__ == '__main__':
     app.run(debug=True)
+
