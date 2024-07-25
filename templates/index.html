@@ -82,4 +82,11 @@
                 .catch(error => console.error('Error:', error));
             });
 
-            document.getElementById('confirmNo').addEventListener('click', function
+            document.getElementById('confirmNo').addEventListener('click', function() {
+                document.getElementById('tasteForm').style.display = 'block';
+                document.getElementById('confirmation').style.display = 'none';
+            });
+        });
+    </script>
+</body>
+</html>
