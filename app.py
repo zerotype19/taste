@@ -57,44 +57,68 @@ categories = [
 
 @app.route('/')
 def index():
-    return render_template('index.html', categories=categories)
+    return render_template('index.html')
+
+@app.route('/confirm', methods=['POST'])
+def confirm():
+    data = request.json
+    brand = data['brand']
+    
+    # Use OpenAI API to confirm the brand category and subcategory
+    response = openai.Completion.create(
+        engine="text-davinci-004",
+        prompt=f"Determine the category and subcategory for the brand {brand}.",
+        max_tokens=50
+    )
+    gpt_response = response.choices[0].text.strip()
+    
+    # For simplicity, let's assume the response is in the format "Category: <category>, Subcategory: <subcategory>"
+    category = gpt_response.split(',')[0].split(':')[1].strip()
+    subcategory = gpt_response.split(',')[1].split(':')[1].strip()
+    
+    return jsonify({
+        "brand": brand,
+        "category": category,
+        "subcategory": subcategory
+    })
 
 @app.route('/evaluate', methods=['POST'])
 def evaluate():
     data = request.json
-    scores = data['scores']
     brand = data['brand']
-    category = data['category']
-    subcategory = data['subcategory']
-    good_taste_score = sum(scores) / len(scores)
     
-    # Use OpenAI API to enhance evaluation (example)
+    # Use OpenAI API to get evaluation scores
     response = openai.Completion.create(
         engine="text-davinci-004",
-        prompt=f"Evaluate the brand {brand} with scores {scores} in the context of good taste.",
+        prompt=f"Evaluate the brand {brand} on the following categories: {', '.join(categories)}. Provide scores between 0 and 10 for each category.",
         max_tokens=150
     )
-    gpt_evaluation = response.choices[0].text.strip()
+    gpt_response = response.choices[0].text.strip()
+    
+    # For simplicity, let's assume the response is in the format "CS: 8, AA: 7, ..."
+    scores = [int(score.split(':')[1].strip()) for score in gpt_response.split(',')]
+    good_taste_score = sum(scores) / len(scores)
     
     # Capture data with timestamp
     brand_evaluation = BrandEvaluation(
         brand=brand,
-        category=category,
-        subcategory=subcategory,
+        category=data['category'],
+        subcategory=data['subcategory'],
         scores=scores,
         good_taste_score=good_taste_score,
-        gpt_evaluation=gpt_evaluation
+        gpt_evaluation=gpt_response
     )
     db.session.add(brand_evaluation)
     db.session.commit()
     
     return jsonify({
         "brand": brand,
-        "category": category,
-        "subcategory": subcategory,
+        "category": data['category'],
+        "subcategory": data['subcategory'],
         "good_taste_score": good_taste_score,
         "scores": scores,
-        "gpt_evaluation": gpt_evaluation
+        "gpt_evaluation": gpt_response,
+        "categories": categories
     })
 
 if __name__ == '__main__':
